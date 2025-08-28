@@ -1,5 +1,5 @@
 {
-  "name": "shaderkit",
+  "name": "@iwoplaza/shaderkit",
   "version": "0.6.0",
   "description": "Tools and IntelliSense for GLSL and WGSL.",
   "keywords": [
