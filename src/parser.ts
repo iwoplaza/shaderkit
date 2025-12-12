@@ -163,7 +163,7 @@ function skipIrrelevant(tokens: Tokens, ignorePreprocessor: boolean = true): voi
     if (ignorePreprocessor && token.value === '#') {
       tokens.encounteredMacro = true
       let name = ''
-      const nameToken = tokens.list[tokens.cursor + 1]
+      const nameToken = tokens.list[++tokens.cursor]
       if (nameToken.value !== '\\') {
         name = nameToken.value
       }
@@ -172,9 +172,11 @@ function skipIrrelevant(tokens: Tokens, ignorePreprocessor: boolean = true): voi
         preprocessorScope++
       } else if (name === 'endif') {
         preprocessorScope--
+        tokens.cursor++
       } else {
         // Ignoring everything up until the end of the directive
         while (hasNextToken(tokens) && tokens.list[tokens.cursor].value !== '\\') tokens.cursor++
+        tokens.cursor++
       }
 
       continue
@@ -556,7 +558,7 @@ function parseStruct(tokens: Tokens): StructDeclaration {
   const id: Identifier = { type: 'Identifier', name: consume(tokens).value }
   consume(tokens, '{')
   const members: VariableDeclaration[] = []
-  while (peek(tokens) && peek(tokens)!.value !== '}') {
+  while (peek(tokens, 0, false) && peek(tokens, 0, false)!.value !== '}') {
     members.push(...(parseStatements(tokens) as unknown as VariableDeclaration[]))
   }
   consume(tokens, '}')

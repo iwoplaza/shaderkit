@@ -1188,6 +1188,64 @@ describe('parser', () => {
     ])
   })
 
+  it('hoists preprocessor directives out of expressions', () => {
+    expect(
+      parse(`\
+mat3 tbn = getTangentFrame(-vViewPosition, normal
+#if defined(USE_NORMALMAP)
+	vNormalMapUv,
+#elif defined(USE_CLEARCOAT_NORMALMAP)
+	vClearcoatNormalMapUv,
+#else
+	vUv,
+#endif
+);`).body,
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "declarations": [
+            {
+              "id": {
+                "name": "tbn",
+                "type": "Identifier",
+              },
+              "init": {
+                "arguments": [
+                  {
+                    "argument": {
+                      "name": "vViewPosition",
+                      "type": "Identifier",
+                    },
+                    "operator": "-",
+                    "prefix": true,
+                    "type": "UnaryExpression",
+                  },
+                  {
+                    "name": "normal",
+                    "type": "Identifier",
+                  },
+                ],
+                "callee": {
+                  "name": "getTangentFrame",
+                  "type": "Identifier",
+                },
+                "type": "CallExpression",
+              },
+              "layout": null,
+              "qualifiers": [],
+              "type": "VariableDeclarator",
+              "typeSpecifier": {
+                "name": "mat3",
+                "type": "Identifier",
+              },
+            },
+          ],
+          "type": "VariableDeclaration",
+        },
+      ]
+    `)
+  })
+
   it('parses nested block statements', () => {
     expect(parse('{ { float a = float(a) + 1.0; } }\n').body).toStrictEqual<[BlockStatement]>([
       {
