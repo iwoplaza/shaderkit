@@ -143,30 +143,79 @@ interface Tokens {
    * Starts at 0, points at the next token yet to be consumed.
    */
   cursor: number
+  /**
+   * If a macro (or preprocessor statement) was encountered
+   * during parsing. Used to workaround expression-level macros
+   * and transform them into statements.
+   */
+  encounteredMacro?: boolean | undefined
 }
 
 function hasNextToken(tokens: Tokens): boolean {
   return tokens.cursor < tokens.list.length
 }
 
-function peek(tokens: Tokens, offset: number = 0): Token | null {
-  for (let i = tokens.cursor; i < tokens.list.length; i++) {
-    const token = tokens.list[i]
-    if (token.type !== 'whitespace' && token.type !== 'comment') {
-      if (offset === 0) return token
-      else offset--
+function skipIrrelevant(tokens: Tokens, ignorePreprocessor: boolean = true): void {
+  let preprocessorScope = 0
+  for (; hasNextToken(tokens); tokens.cursor++) {
+    const token = tokens.list[tokens.cursor]
+
+    if (ignorePreprocessor && token.value === '#') {
+      tokens.encounteredMacro = true
+      let name = ''
+      const nameToken = tokens.list[tokens.cursor + 1]
+      if (nameToken.value !== '\\') {
+        name = nameToken.value
+      }
+
+      if (name === 'if' || name === 'ifdef' || name === 'ifndef') {
+        preprocessorScope++
+      } else if (name === 'endif') {
+        preprocessorScope--
+      } else {
+        // Ignoring everything up until the end of the directive
+        while (hasNextToken(tokens) && tokens.list[tokens.cursor].value !== '\\') tokens.cursor++
+      }
+
+      continue
+    }
+
+    if (preprocessorScope > 0) {
+      continue
+    }
+
+    if (token.type === 'whitespace' || token.type === 'comment') {
+      continue
+    }
+
+    // Something relevant
+    return
+  }
+}
+
+function peek(tokens: Tokens, offset: number = 0, ignorePreprocessor: boolean = true): Token | null {
+  const prevCursor = tokens.cursor
+  while (hasNextToken(tokens)) {
+    skipIrrelevant(tokens, ignorePreprocessor)
+
+    if (offset === 0) {
+      const token = tokens.list[tokens.cursor]
+      tokens.cursor = prevCursor
+      return token
+    } else {
+      offset--
+      tokens.cursor++
     }
   }
 
+  tokens.cursor = prevCursor
   return null
 }
 
-function consume(tokens: Tokens, expected?: string): Token {
-  // TODO: use token cursor for performance and store for sourcemaps
-  let token = tokens.list[tokens.cursor++]
-  while (token && (token.type === 'whitespace' || token.type === 'comment')) {
-    token = tokens.list[tokens.cursor++]
-  }
+function consume(tokens: Tokens, expected?: string, ignorePreprocessor: boolean = true): Token {
+  // TODO: use store for sourcemaps
+  skipIrrelevant(tokens, ignorePreprocessor)
+  const token = tokens.list[tokens.cursor++]
 
   if (token === undefined && expected !== undefined) {
     throw new SyntaxError(`Expected "${expected}"`)
@@ -654,7 +703,7 @@ function parsePrecision(tokens: Tokens): PrecisionQualifierStatement {
 }
 
 function parsePreprocessor(tokens: Tokens): PreprocessorStatement {
-  consume(tokens, '#')
+  consume(tokens, '#', false)
 
   let name = '' // name can be unset for the # directive which is ignored
   let value: Expression[] | null = null
@@ -734,7 +783,7 @@ function isVariable(tokens: Tokens): boolean {
 }
 
 function parseStatement(tokens: Tokens): Statement {
-  const token = peek(tokens)!
+  const token = peek(tokens, 0, false)!
   let statement: Statement | null = null
 
   if (token.value === '#') statement = parsePreprocessor(tokens)
@@ -766,7 +815,7 @@ function parseStatements(tokens: Tokens): Statement[] {
   let scopeIndex = 0
 
   while (true) {
-    const token = peek(tokens)
+    const token = peek(tokens, 0, false)
     if (!token) break
 
     scopeIndex += getScopeDelta(token)
