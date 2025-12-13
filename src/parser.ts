@@ -38,6 +38,7 @@ import {
   WhileStatement,
   LayoutQualifierStatement,
 } from './ast.js'
+import { hoistPreprocessorDirectives } from './hoister.js'
 import { type Token, tokenize } from './tokenizer.js'
 
 // https://engineering.desmos.com/articles/pratt-parser
@@ -824,7 +825,16 @@ function parseStatements(tokens: Tokens): Statement[] {
     if (scopeIndex < 0 || token.value === '}') break
 
     if (token.value === 'case' || token.value === 'default') break
-    body.push(parseStatement(tokens))
+
+    tokens.encounteredMacro = false
+    const start = tokens.cursor
+    const statement = parseStatement(tokens)
+    if (tokens.encounteredMacro) {
+      const hoistedTokens = hoistPreprocessorDirectives(tokens.list.slice(start, tokens.cursor))
+      body.push(...parseStatements({ list: hoistedTokens, cursor: 0 }))
+    } else {
+      body.push(statement)
+    }
   }
 
   return body
@@ -846,19 +856,10 @@ function parseBlockOrStatement(tokens: Tokens): BlockStatement | Statement {
   }
 }
 
-const NEWLINE_REGEX = /\\\s+/gm
-const DIRECTIVE_REGEX = /(^\s*#[^\\]*?)(\n|\/[\/\*])/gm
-
 /**
  * Parses a string of GLSL (WGSL WIP) code into an [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree).
  */
 export function parse(code: string): Program {
-  // Fold newlines
-  code = code.replace(NEWLINE_REGEX, '')
-
-  // Escape newlines after directives, skip comments
-  code = code.replace(DIRECTIVE_REGEX, '$1\\$2')
-
   const tokens = {
     list: tokenize(code),
     cursor: 0,

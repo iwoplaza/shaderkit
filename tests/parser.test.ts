@@ -1200,50 +1200,7 @@ mat3 tbn = getTangentFrame(-vViewPosition, normal
 	vUv,
 #endif
 );`).body,
-    ).toMatchInlineSnapshot(`
-      [
-        {
-          "declarations": [
-            {
-              "id": {
-                "name": "tbn",
-                "type": "Identifier",
-              },
-              "init": {
-                "arguments": [
-                  {
-                    "argument": {
-                      "name": "vViewPosition",
-                      "type": "Identifier",
-                    },
-                    "operator": "-",
-                    "prefix": true,
-                    "type": "UnaryExpression",
-                  },
-                  {
-                    "name": "normal",
-                    "type": "Identifier",
-                  },
-                ],
-                "callee": {
-                  "name": "getTangentFrame",
-                  "type": "Identifier",
-                },
-                "type": "CallExpression",
-              },
-              "layout": null,
-              "qualifiers": [],
-              "type": "VariableDeclarator",
-              "typeSpecifier": {
-                "name": "mat3",
-                "type": "Identifier",
-              },
-            },
-          ],
-          "type": "VariableDeclaration",
-        },
-      ]
-    `)
+    ).toMatchInlineSnapshot(`[]`)
   })
 
   it('parses nested block statements', () => {

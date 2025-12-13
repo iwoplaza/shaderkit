@@ -42,10 +42,19 @@ function matchAsPrefix(regex: RegExp, string: string, start: number): string | u
   return regex.exec(string)?.[0]
 }
 
+const NEWLINE_REGEX = /\\\s+/gm
+const DIRECTIVE_REGEX = /(^\s*#[^\\]*?)(\n|\/[\/\*])/gm
+
 /**
  * Tokenizes a string of GLSL or WGSL code.
  */
 export function tokenize(code: string, index: number = 0): Token[] {
+  // Fold newlines
+  code = code.replace(NEWLINE_REGEX, '')
+
+  // Escape newlines after directives, skip comments
+  code = code.replace(DIRECTIVE_REGEX, '$1\\$2')
+
   const [KEYWORDS, SYMBOLS] = WGSL_REGEX.test(code) ? [WGSL_KEYWORDS, WGSL_SYMBOLS] : [GLSL_KEYWORDS, GLSL_SYMBOLS]
 
   const KEYWORDS_LIST = new Set(KEYWORDS)
@@ -102,4 +111,22 @@ export function tokenize(code: string, index: number = 0): Token[] {
   }
 
   return tokens
+}
+
+export function print(tokens: Token[]) {
+  let result = ''
+  let skipNextBaskslash = false
+  for (const token of tokens) {
+    if (token.value === '#') {
+      skipNextBaskslash = true
+    }
+
+    if (token.value === '\\' && skipNextBaskslash) {
+      skipNextBaskslash = false
+      continue
+    }
+
+    result += token.value
+  }
+  return result
 }
