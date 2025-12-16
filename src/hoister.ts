@@ -36,7 +36,7 @@ export function segmentDirectives(tokens: Token[]): PreprocessorSegment[] {
   }
 
   if (prefix.length > 0) {
-    segments.push({ suffix: prefix, scope })
+    segments.push({ suffix: trimWhitespace(prefix), scope })
   }
 
   while (cursor < tokens.length) {
@@ -53,7 +53,7 @@ export function segmentDirectives(tokens: Token[]): PreprocessorSegment[] {
 
     const name = directive[1]?.value ?? ''
     scope += preScopeDelta[name] || 0
-    segments.push({ directive, suffix, scope })
+    segments.push({ directive, suffix: trimWhitespace(suffix), scope })
     scope += postScopeDelta[name] || 0
   }
 
@@ -62,6 +62,25 @@ export function segmentDirectives(tokens: Token[]): PreprocessorSegment[] {
 
 export function getDirectiveName(segment: PreprocessorSegment): string {
   return segment.directive?.[1]?.value ?? ''
+}
+
+export function trimWhitespace(tokens: Token[]): Token[] {
+  let start = 0
+  let end = tokens.length - 1
+
+  if (end === 0 && tokens[0].type === 'whitespace') {
+    return []
+  }
+
+  while (start < end && tokens[start].type === 'whitespace') {
+    start++
+  }
+
+  while (end > start && tokens[end].type === 'whitespace') {
+    end--
+  }
+
+  return tokens.slice(start, end + 1)
 }
 
 function constructHoistTree(
@@ -73,13 +92,7 @@ function constructHoistTree(
 
   let leafNode: HoistNode = {
     cases: remainder?.cases ?? [],
-    // Merging the suffix of the last segment with the start of the remainder
-    prefix: [...segments[seg].suffix, ...(remainder?.prefix ?? [])],
-  }
-
-  if (seg === 0) {
-    // No more segments to explore
-    return leafNode
+    prefix: remainder?.prefix ?? [],
   }
 
   let currentNode: HoistNode | undefined
@@ -88,29 +101,37 @@ function constructHoistTree(
   let caseEnd = seg
 
   while (seg >= 0) {
-    if (segments[seg].scope > scope + 1) {
+    const segment = segments[seg]
+    if (segment.scope === scope) {
+      // A segment that belongs to the outer scope, meaning we're at the top of the nested node
+      leafNode.prefix = [...segment.suffix, ...leafNode.prefix]
+      seg--
+      continue
+    }
+
+    if (segment.scope > scope + 1) {
+      seg--
       continue // A nested segment, skip it
     }
 
-    const name = getDirectiveName(segments[seg])
+    const name = getDirectiveName(segment)
     if (name === '') {
       // The first segment, no directive
-      if (currentNode) {
-        currentNode.prefix = [...segments[seg].suffix, ...currentNode.prefix]
+      if (leafNode) {
+        leafNode.prefix = [...segment.suffix, ...leafNode.prefix]
       }
     } else if (name === 'endif') {
       // Prepending the suffix of the endif segment before the leaf node
-      leafNode.prefix = [...segments[seg].suffix, ...leafNode.prefix]
+      leafNode.prefix = [...segment.suffix, ...leafNode.prefix]
       caseEnd = seg
       currentNode = {
         cases: [],
         prefix: [],
       }
     } else if (name === 'else' || name === 'elif' || name === 'if' || name === 'ifdef' || name === 'ifndef') {
-      const caseStart = seg
-      const caseNode = constructHoistTree(segments.slice(caseStart, caseEnd), scope + 1, leafNode)
+      const caseNode = constructHoistTree(segments.slice(seg, caseEnd), scope + 1, leafNode)
       caseEnd = seg // the next ends where the previous started
-      currentNode?.cases.unshift({ cond: segments[caseStart].directive ?? [], node: caseNode })
+      currentNode?.cases.unshift({ cond: segment.directive ?? [], node: caseNode })
     }
 
     if (name === 'if' || name === 'ifdef' || name === 'ifndef') {
@@ -136,11 +157,13 @@ function flattenHoistNode(node: HoistNode, prefix: Token[]): Token[] {
         ...case_.cond,
         { type: 'whitespace' as const, value: '\n' },
         ...flattenHoistNode(case_.node, [...prefix, ...node.prefix]),
+        { type: 'whitespace' as const, value: '\n' },
       ]
     }),
     { type: 'symbol', value: '#' },
     { type: 'keyword', value: 'endif' },
-    { type: 'whitespace', value: '\n' },
+    { type: 'symbol' as const, value: '\\' },
+    { type: 'whitespace' as const, value: '\n' },
   ]
 }
 

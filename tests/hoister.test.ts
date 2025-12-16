@@ -1,6 +1,17 @@
 import { print, tokenize } from 'shaderkit'
 import { describe, expect, it } from 'vitest'
-import { type HoistNode, hoistPreprocessorDirectives, segmentDirectives } from '../src/hoister.js'
+import { hoistPreprocessorDirectives } from '../src/hoister.js'
+
+const glslComplexCondition = `\
+mat3 tbn = getTangentFrame(-vViewPosition, normal,
+#if defined(USE_NORMALMAP)
+	vNormalMapUv
+#elif defined(USE_CLEARCOAT_NORMALMAP)
+	vClearcoatNormalMapUv
+#else
+	vUv
+#endif
+);`
 
 const glslSiblingConditions = `\
 vec3 color = getColor(
@@ -16,130 +27,123 @@ vec3 color = getColor(
   #endif
 );`
 
-// function printRecursive(obj: HoistNode): unknown {
-//   return {
-//     prefix: print(obj.prefix),
-//     cases: obj.cases.map((case_) => ({
-//       cond: print(case_.cond),
-//       node: printRecursive(case_.node),
-//     })),
-//   }
-// }
-
-describe('segmentDirectives', () => {
-  it('segments directives', () => {
-    const inTokens = tokenize(glslSiblingConditions)
-    const segments = segmentDirectives(inTokens)
-    expect(
-      segments.map((seg) => ({
-        suffix: print(seg.suffix),
-        directive: seg.directive ? print(seg.directive) : undefined,
-      })),
-    ).toMatchInlineSnapshot(`
-      [
-        {
-          "directive": undefined,
-          "suffix": "vec3 color = getColor(
-        ",
-        },
-        {
-          "directive": "#ifdef VIEW_NORMALMAP",
-          "suffix": "
-          normalMap,
-        ",
-        },
-        {
-          "directive": "#else",
-          "suffix": "
-          colorMap,
-        ",
-        },
-        {
-          "directive": "#endif",
-          "suffix": "
-        ",
-        },
-        {
-          "directive": "#ifdef HIGH_P",
-          "suffix": "
-          vUvHigh
-        ",
-        },
-        {
-          "directive": "#else",
-          "suffix": "
-          vUvLow
-        ",
-        },
-        {
-          "directive": "#endif",
-          "suffix": "
-      );",
-        },
-      ]
-    `)
-  })
-})
-
-describe('hoistPreprocessorDirectives', () => {
-  it('hoists preprocessor directives', () => {
-    const inCode = `\
+const glslNestedConditions = `\
 vec3 color = getColor(
   #ifdef VIEW_NORMALMAP
-    normalMap,
+    normalMap
   #else
-    colorMap,
-  #endif
-  #ifdef HIGH_P
-    vUvHigh
-  #else
-    vUvLow
+    #ifdef GRAYSCALE
+      grayscaleMap
+    #else
+      colorMap
+    #endif
   #endif
 );`
 
-    const inTokens = tokenize(inCode)
-    const outCode = print(hoistPreprocessorDirectives(inTokens, 0, inTokens.length))
+const glslSiblingNestedConditions = `\
+vec3 color =
+  #if CACHE
+    getColor(
+    #if COLOR
+      colorMap,
+    #else
+      grayscaleMap,
+    #endif
+  #else
+    computeColor(
+  #endif
+  #if HIGH_P
+    highPrecisionUV
+  #else
+    lowPrecisionUV
+  #endif
+  );`
+
+describe('hoistPreprocessorDirectives', () => {
+  it('hoists complex condition', () => {
+    const inTokens = tokenize(glslComplexCondition)
+    const outCode = print(hoistPreprocessorDirectives(inTokens))
+    expect(outCode).toMatchInlineSnapshot(`
+      "#if defined(USE_NORMALMAP)
+      mat3 tbn = getTangentFrame(-vViewPosition, normal,vNormalMapUv);
+      #elif defined(USE_CLEARCOAT_NORMALMAP)
+      mat3 tbn = getTangentFrame(-vViewPosition, normal,vClearcoatNormalMapUv);
+      #else
+      mat3 tbn = getTangentFrame(-vViewPosition, normal,vUv);
+      #endif
+      "
+    `)
+  })
+
+  it('hoists sibling directives', () => {
+    const inTokens = tokenize(glslSiblingConditions)
+    const outCode = print(hoistPreprocessorDirectives(inTokens))
     expect(outCode).toMatchInlineSnapshot(`
       "#ifdef VIEW_NORMALMAP
       #ifdef HIGH_P
-      vec3 color = getColor(
-        
-          normalMap,
-        
-        
-          vUvHigh
-        
-      );
-      );#else
-      vec3 color = getColor(
-        
-          normalMap,
-        
-        
-          vUvLow
-        
-      );
-      );#endif
+      vec3 color = getColor(normalMap,vUvHigh);
+      #else
+      vec3 color = getColor(normalMap,vUvLow);
+      #endif
+
       #else
       #ifdef HIGH_P
-      vec3 color = getColor(
-        
-          colorMap,
-        
-        
-          vUvHigh
-        
-      );
-      );#else
-      vec3 color = getColor(
-        
-          colorMap,
-        
-        
-          vUvLow
-        
-      );
-      );#endif
+      vec3 color = getColor(colorMap,vUvHigh);
+      #else
+      vec3 color = getColor(colorMap,vUvLow);
+      #endif
+
+      #endif
+      "
+    `)
+  })
+
+  it('hoists nested directives', () => {
+    const inTokens = tokenize(glslNestedConditions)
+    const outCode = print(hoistPreprocessorDirectives(inTokens))
+    expect(outCode).toMatchInlineSnapshot(`
+      "#ifdef VIEW_NORMALMAP
+      vec3 color = getColor(normalMap);
+      #else
+      #ifdef GRAYSCALE
+      vec3 color = getColor(grayscaleMap);
+      #else
+      vec3 color = getColor(colorMap);
+      #endif
+
+      #endif
+      "
+    `)
+  })
+
+  it('hoists nested & sibling conditions', () => {
+    const inTokens = tokenize(glslSiblingNestedConditions)
+    const outCode = print(hoistPreprocessorDirectives(inTokens))
+    expect(outCode).toMatchInlineSnapshot(`
+      "#if CACHE
+      #if COLOR
+      #if HIGH_P
+      vec3 color =getColor(colorMap,highPrecisionUV);
+      #else
+      vec3 color =getColor(colorMap,lowPrecisionUV);
+      #endif
+
+      #else
+      #if HIGH_P
+      vec3 color =getColor(grayscaleMap,highPrecisionUV);
+      #else
+      vec3 color =getColor(grayscaleMap,lowPrecisionUV);
+      #endif
+
+      #endif
+
+      #else
+      #if HIGH_P
+      vec3 color =computeColor(highPrecisionUV);
+      #else
+      vec3 color =computeColor(lowPrecisionUV);
+      #endif
+
       #endif
       "
     `)
