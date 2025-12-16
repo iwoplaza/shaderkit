@@ -220,10 +220,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
     "value": "es",
   },
   {
-    "type": "symbol",
-    "value": "\\",
-  },
-  {
     "type": "whitespace",
     "value": "
   ",
@@ -336,10 +332,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
     "value": "1",
   },
   {
-    "type": "symbol",
-    "value": "\\",
-  },
-  {
     "type": "whitespace",
     "value": "
 
@@ -364,10 +356,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
   {
     "type": "whitespace",
     "value": " ",
-  },
-  {
-    "type": "symbol",
-    "value": "\\",
   },
   {
     "type": "comment",
@@ -412,10 +400,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
   {
     "type": "symbol",
     "value": ")",
-  },
-  {
-    "type": "symbol",
-    "value": "\\",
   },
   {
     "type": "whitespace",
@@ -474,10 +458,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
   {
     "type": "keyword",
     "value": "endif",
-  },
-  {
-    "type": "symbol",
-    "value": "\\",
   },
   {
     "type": "whitespace",
@@ -638,10 +618,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
   {
     "type": "symbol",
     "value": ">",
-  },
-  {
-    "type": "symbol",
-    "value": "\\",
   },
   {
     "type": "whitespace",
@@ -1025,10 +1001,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
     "value": ")",
   },
   {
-    "type": "symbol",
-    "value": "\\",
-  },
-  {
     "type": "whitespace",
     "value": "
       ",
@@ -1063,10 +1035,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
     "value": "else",
   },
   {
-    "type": "symbol",
-    "value": "\\",
-  },
-  {
     "type": "whitespace",
     "value": "
       ",
@@ -1099,10 +1067,6 @@ exports[`tokenize > can tokenize GLSL 1`] = `
   {
     "type": "keyword",
     "value": "endif",
-  },
-  {
-    "type": "symbol",
-    "value": "\\",
   },
   {
     "type": "whitespace",

@@ -2,7 +2,20 @@ import { print, tokenize } from 'shaderkit'
 import { describe, expect, it } from 'vitest'
 import { hoistPreprocessorDirectives } from '../src/hoister.js'
 
-const glslComplexCondition = `\
+const NEWLINE_REGEX = /\\\s+/gm
+const DIRECTIVE_REGEX = /(^\s*#[^\\]*?)(\n|\/[\/\*])/gm
+
+function workAroundDirectiveEnd(code: string): string {
+  // Fold newlines
+  code = code.replace(NEWLINE_REGEX, '')
+
+  // Escape newlines after directives, skip comments
+  code = code.replace(DIRECTIVE_REGEX, '$1\\$2')
+
+  return code
+}
+
+const glslComplexCondition = workAroundDirectiveEnd(`\
 mat3 tbn = getTangentFrame(-vViewPosition, normal,
 #if defined(USE_NORMALMAP)
 	vNormalMapUv
@@ -11,9 +24,9 @@ mat3 tbn = getTangentFrame(-vViewPosition, normal,
 #else
 	vUv
 #endif
-);`
+);`)
 
-const glslSiblingConditions = `\
+const glslSiblingConditions = workAroundDirectiveEnd(`\
 vec3 color = getColor(
   #ifdef VIEW_NORMALMAP
     normalMap,
@@ -25,9 +38,9 @@ vec3 color = getColor(
   #else
     vUvLow
   #endif
-);`
+);`)
 
-const glslNestedConditions = `\
+const glslNestedConditions = workAroundDirectiveEnd(`\
 vec3 color = getColor(
   #ifdef VIEW_NORMALMAP
     normalMap
@@ -38,9 +51,9 @@ vec3 color = getColor(
       colorMap
     #endif
   #endif
-);`
+);`)
 
-const glslSiblingNestedConditions = `\
+const glslSiblingNestedConditions = workAroundDirectiveEnd(`\
 vec3 color =
   #if CACHE
     getColor(
@@ -57,7 +70,7 @@ vec3 color =
   #else
     lowPrecisionUV
   #endif
-  );`
+  );`)
 
 describe('hoistPreprocessorDirectives', () => {
   it('hoists complex condition', () => {

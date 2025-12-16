@@ -856,10 +856,19 @@ function parseBlockOrStatement(tokens: Tokens): BlockStatement | Statement {
   }
 }
 
+const NEWLINE_REGEX = /\\\s+/gm
+const DIRECTIVE_REGEX = /(^\s*#[^\\]*?)(\n|\/[\/\*])/gm
+
 /**
  * Parses a string of GLSL (WGSL WIP) code into an [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree).
  */
 export function parse(code: string): Program {
+  // Fold newlines
+  code = code.replace(NEWLINE_REGEX, '')
+
+  // Escape newlines after directives, skip comments
+  code = code.replace(DIRECTIVE_REGEX, '$1\\$2')
+
   const tokens = {
     list: tokenize(code),
     cursor: 0,
