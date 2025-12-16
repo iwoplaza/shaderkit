@@ -88,8 +88,6 @@ function constructHoistTree(
   scope: number = 0,
   remainder: HoistNode | undefined = undefined,
 ): HoistNode {
-  let seg = segments.length - 1
-
   let leafNode: HoistNode = {
     cases: remainder?.cases ?? [],
     prefix: remainder?.prefix ?? [],
@@ -98,19 +96,17 @@ function constructHoistTree(
   let currentNode: HoistNode | undefined
   // The segment index that marks the end of the currently
   // explored case (exclusive)
-  let caseEnd = seg
+  let caseEnd = segments.length - 1
 
-  while (seg >= 0) {
+  for (let seg = segments.length - 1; seg >= 0; seg--) {
     const segment = segments[seg]
     if (segment.scope === scope) {
       // A segment that belongs to the outer scope, meaning we're at the top of the nested node
       leafNode.prefix = [...segment.suffix, ...leafNode.prefix]
-      seg--
       continue
     }
 
     if (segment.scope > scope + 1) {
-      seg--
       continue // A nested segment, skip it
     }
 
@@ -138,8 +134,6 @@ function constructHoistTree(
       // We're finishing up a whole node
       leafNode = currentNode!
     }
-
-    seg--
   }
 
   // No nested conditions in this node
