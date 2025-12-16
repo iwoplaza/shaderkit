@@ -103,21 +103,3 @@ export function tokenize(code: string, index: number = 0): Token[] {
 
   return tokens
 }
-
-export function print(tokens: Token[]) {
-  let result = ''
-  let skipNextBaskslash = false
-  for (const token of tokens) {
-    if (token.value === '#') {
-      skipNextBaskslash = true
-    }
-
-    if (token.value === '\\' && skipNextBaskslash) {
-      skipNextBaskslash = false
-      continue
-    }
-
-    result += token.value
-  }
-  return result
-}

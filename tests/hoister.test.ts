@@ -1,4 +1,4 @@
-import { print, tokenize } from 'shaderkit'
+import { type Token, tokenize } from 'shaderkit'
 import { describe, expect, it } from 'vitest'
 import { hoistPreprocessorDirectives } from '../src/hoister.js'
 
@@ -13,6 +13,24 @@ function workAroundDirectiveEnd(code: string): string {
   code = code.replace(DIRECTIVE_REGEX, '$1\\$2')
 
   return code
+}
+
+function print(tokens: Token[]) {
+  let result = ''
+  let skipNextBaskslash = false
+  for (const token of tokens) {
+    if (token.value === '#') {
+      skipNextBaskslash = true
+    }
+
+    if (token.value === '\\' && skipNextBaskslash) {
+      skipNextBaskslash = false
+      continue
+    }
+
+    result += token.value
+  }
+  return result
 }
 
 const glslComplexCondition = workAroundDirectiveEnd(`\
